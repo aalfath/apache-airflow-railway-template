@@ -1,0 +1,45 @@
+# Local test only (Daytona): mirrors the Railway template's services and variables.
+x-af: &af
+  build: ../airflow
+  environment: &env
+    DATABASE_URL: postgresql://postgres:pgpass-local-test@postgres:5432/railway
+    REDIS_URL: redis://default:redispass-local-test@redis:6379
+    AIRFLOW_FERNET_SECRET: fernet-local-test-0123456789abcdef
+    AIRFLOW__API_AUTH__JWT_SECRET: jwt-local-test-0123456789abcdef0123456789
+    AIRFLOW__API__SECRET_KEY: api-local-test-0123456789abcdef0123456789
+    AIRFLOW_API_PRIVATE_URL: http://airflow:8080
+    PORT: "8080"
+services:
+  postgres:
+    image: postgres:16
+    environment: {POSTGRES_USER: postgres, POSTGRES_PASSWORD: pgpass-local-test, POSTGRES_DB: railway}
+    volumes: [pg:/var/lib/postgresql/data]
+  redis:
+    image: redis:7.2-bookworm
+    command: redis-server --requirepass redispass-local-test
+  airflow:
+    <<: *af
+    hostname: airflow
+    environment:
+      <<: *env
+      AIRFLOW_ROLE: api-server
+      AIRFLOW__API__BASE_URL: http://localhost:8080
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin-local-test-pass
+    ports: ["8080:8080"]
+  scheduler:
+    <<: *af
+    environment: {<<: *env, AIRFLOW_ROLE: scheduler}
+  dag-processor:
+    <<: *af
+    environment: {<<: *env, AIRFLOW_ROLE: dag-processor}
+  triggerer:
+    <<: *af
+    environment: {<<: *env, AIRFLOW_ROLE: triggerer}
+    volumes: [tlogs:/opt/airflow/logs]
+  worker:
+    <<: *af
+    hostname: worker
+    environment: {<<: *env, AIRFLOW_ROLE: worker}
+    volumes: [wlogs:/opt/airflow/logs]
+volumes: {pg: {}, wlogs: {}, tlogs: {}}
